@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
         cout << "SUCCESS! Password: " << found_password << endl;
         cout << "Verification: " << computeMD4(found_password.c_str(), PASSWORD_LENGTH) << endl;
     } else {
-        cout << "❌ Not found" << endl;
+        cout << "Not found" << endl;
     }
     cout << "Time bruteforcing: " << duration.count() << "s" << endl;
     return 0;
