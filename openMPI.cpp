@@ -52,21 +52,21 @@ int main(int argc, char *argv[])
 
   if (process_rank == 0)
   {
-    cout << "X = " << (2 * A + B) << ", order = " << distribution_type
-         << ", procs = " << total_processes << endl;
+    cout << "X = " << (2 * A + B) << ", Порядок = " << distribution_type
+         << ", Процессов = " << total_processes << endl;
   }
 
   if (total_processes != required_processes)
   {
     if (process_rank == 0)
     {
-      cerr << "Error: run with -np " << required_processes << " processes.\n";
+      cerr << "Ошибка при запуске с -np" << required_processes << " процессов.\n";
     }
     MPI_Finalize();
     return 1;
   }
 
-  // Только процесс 0 генерирует полный массив
+  // Only process 0 generates the full array
   unsigned char *mas = nullptr;
 
   if (process_rank == 0)
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  // Вычисляем границы для каждого процесса
+  // Calculate the chunk size and remainder for each process
   long chunk_size = ARR_SIZE / total_processes;
   long remainder = ARR_SIZE % total_processes;
 
@@ -95,17 +95,17 @@ int main(int argc, char *argv[])
     start = remainder * (chunk_size + 1) + (process_rank - remainder) * chunk_size;
   }
 
-  // Выделяем память для локальных данных + ghost cells
+  // Get the memory for local data + ghost cells
   unsigned char *local_data = new unsigned char[local_size + 2];
 
-  // Процесс 0 раздает данные
+  // Process 0 sends data to other processes
   if (process_rank == 0)
   {
-    // Копируем свою часть
+    // Copy its own part
     for (long i = 0; i < local_size; i++)
       local_data[i + 1] = mas[i];
 
-    // Отправляем данные остальным процессам
+    // Send data to other processes
     long offset = local_size;
     for (int proc = 1; proc < total_processes; proc++)
     {
@@ -119,12 +119,12 @@ int main(int argc, char *argv[])
   }
   else
   {
-    // Получаем свою часть от процесса 0
+    // Receive its own part from process 0
     MPI_Recv(&local_data[1], local_size, MPI_UNSIGNED_CHAR,
              0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 
-  // Обмен граничными элементами с левым соседом
+  // Exchange boundary elements with left neighbor
   if (process_rank > 0)
   {
     unsigned char my_first = local_data[1];
@@ -136,10 +136,10 @@ int main(int argc, char *argv[])
   }
   else
   {
-    local_data[0] = 0; // У процесса 0 нет левого соседа
+    local_data[0] = 0; // Process 0 has no left neighbor
   }
 
-  // Обмен граничными элементами с правым соседом
+  // Exchange boundary elements with right neighbor
   if (process_rank < total_processes - 1)
   {
     unsigned char my_last = local_data[local_size];
@@ -151,20 +151,20 @@ int main(int argc, char *argv[])
   }
   else
   {
-    local_data[local_size + 1] = 0; // У последнего процесса нет правого соседа
+    local_data[local_size + 1] = 0; // Last process has no right neighbor
   }
 
-  // Подсчет локальных максимумов
+  // Count local maximum
   unsigned long long local_count = 0;
 
   for (long i = 1; i <= local_size; i++)
   {
     long global_i = start + (i - 1);
 
-    // Проверяем граничные случаи
+    // Check corner cases
     if (global_i == 0)
     {
-      // Первый элемент массива
+      // first elem
       if (ARR_SIZE > 1 && local_data[i] >= local_data[i + 1])
         local_count++;
       else if (ARR_SIZE == 1)
@@ -172,33 +172,32 @@ int main(int argc, char *argv[])
     }
     else if (global_i == ARR_SIZE - 1)
     {
-      // Последний элемент массива
+      // last elem
       if (local_data[i] >= local_data[i - 1])
         local_count++;
     }
     else
     {
-      // Внутренний элемент
+      // inner elem
       if (local_data[i] >= local_data[i - 1] &&
           local_data[i] >= local_data[i + 1])
         local_count++;
     }
   }
 
-  // Сбор результатов
+  // collect results
   if (process_rank == 0)
   {
     vector<unsigned long long> all_counts(total_processes);
     all_counts[0] = local_count;
 
-    // Получаем результаты от остальных процессов
+    // collect results from other processes
     for (int src = 1; src < total_processes; src++)
     {
       MPI_Recv(&all_counts[src], 1, MPI_UNSIGNED_LONG_LONG, src, 0,
                MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 
-    // Выводим результаты в нужном формате
     unsigned long long total = 0;
     for (int i = 0; i < total_processes; i++)
     {
@@ -211,7 +210,7 @@ int main(int argc, char *argv[])
   }
   else
   {
-    // Отправляем результат процессу 0
+    // send result to process 0
     MPI_Send(&local_count, 1, MPI_UNSIGNED_LONG_LONG, 0, 0, MPI_COMM_WORLD);
   }
 
